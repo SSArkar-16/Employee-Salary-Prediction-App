@@ -9,11 +9,19 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-st.set_page_config(page_title="Income Prediction App", layout="wide")
+# ---------------------------
+# Page Setup
+# ---------------------------
+st.set_page_config(page_title="📊 Income Prediction App", layout="wide", initial_sidebar_state="expanded")
 
-# Caching data load
+st.markdown("<h1 style='text-align: center; color: teal;'>💼 Income Prediction using Machine Learning</h1>", unsafe_allow_html=True)
+st.write("This app allows you to explore multiple ML models and predict whether a person's income exceeds $50K/year based on census data.")
+
+# ---------------------------
+# Load & Prepare Dataset
+# ---------------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv("adult 3.csv")
@@ -33,13 +41,11 @@ def load_data():
 
     return df
 
-# Preprocessing & model preparation
 @st.cache_resource
 def preprocess_and_train(df):
     X = df.drop('income', axis=1)
     y = df['income']
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
@@ -67,45 +73,52 @@ def preprocess_and_train(df):
 
     return X_train, X_test, y_train, y_test, scaler, trained
 
-# Main App
-st.title("📊 Income Prediction using ML Models")
-
-# Load data
+# ---------------------------
+# Load data and train models
+# ---------------------------
 df = load_data()
 X_train, X_test, y_train, y_test, scaler, trained_models = preprocess_and_train(df)
 
-# Sidebar for model selection
-st.sidebar.header("🔧 Settings")
-model_name = st.sidebar.selectbox("Choose a Model", list(trained_models.keys()))
+# ---------------------------
+# Sidebar Settings
+# ---------------------------
+st.sidebar.header("⚙️ Settings")
+model_name = st.sidebar.selectbox("Select Model", list(trained_models.keys()))
 
 model_info = trained_models[model_name]
 
+# ---------------------------
 # Tabs
-tab1, tab2, tab3 = st.tabs(["📈 Model Performance", "🧪 Predict New Sample", "📊 Data Exploration"])
+# ---------------------------
+tab1, tab2 = st.tabs(["📈 Model Performance", "🧪 Predict Income"])
 
+# ---------------------------
 # Tab 1 - Model Performance
+# ---------------------------
 with tab1:
-    st.subheader(f"🔍 Evaluation of {model_name}")
+    st.markdown("### 🔍 Model Evaluation")
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.metric("Accuracy", f"{model_info['accuracy']*100:.2f}%")
+        st.metric("🔢 Accuracy", f"{model_info['accuracy']*100:.2f}%")
 
-        st.subheader("Classification Report")
+        st.subheader("📋 Classification Report")
         report_df = pd.DataFrame(model_info['report']).transpose()
         st.dataframe(report_df.style.background_gradient(cmap='Blues'), use_container_width=True)
 
     with col2:
-        st.subheader("Confusion Matrix")
+        st.subheader("📊 Confusion Matrix")
         fig, ax = plt.subplots()
         sns.heatmap(model_info["cm"], annot=True, fmt='d', cmap='Blues', ax=ax)
         ax.set_xlabel("Predicted")
         ax.set_ylabel("Actual")
         st.pyplot(fig)
 
-# Tab 2 - Prediction Input
+# ---------------------------
+# Tab 2 - Prediction
+# ---------------------------
 with tab2:
-    st.subheader(f"🧪 Predict using {model_name}")
+    st.markdown("### 🧪 Try Your Own Input")
 
     input_data = {}
     for col in df.drop('income', axis=1).columns:
@@ -120,19 +133,8 @@ with tab2:
 
     st.success(f"✅ Prediction: {'>50K' if prediction == 1 else '<=50K'}")
 
-# Tab 3 - Data Exploration
-with tab3:
-    st.subheader("📊 Dataset Overview")
-    st.dataframe(df.head(100), use_container_width=True)
-
-    st.subheader("📦 Boxplot for Outlier Detection")
-    numeric_cols = ['age', 'educational-num', 'hours-per-week', 'capital-gain', 'capital-loss']
-    col = st.selectbox("Choose a column", numeric_cols)
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-    sns.boxplot(x=df[col], ax=ax)
-    st.pyplot(fig)
-
+# ---------------------------
 # Footer
+# ---------------------------
 st.sidebar.markdown("---")
-st.sidebar.markdown("Built with ❤️ using Streamlit")
+st.sidebar.markdown("🚀 Built with ❤️ by Streamlit")
