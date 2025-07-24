@@ -16,7 +16,7 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 # ---------------------------
 st.set_page_config(page_title="📊 Income Prediction App", layout="wide", initial_sidebar_state="expanded")
 
-st.markdown("<h1 style='text-align: center; color: teal;'>💼 Income Prediction using Machine Learning</h1>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: teal;'>💼 Income Prediction using Machine Learning</h2>", unsafe_allow_html=True)
 st.write("This app allows you to explore multiple ML models and predict whether a person's income exceeds $50K/year based on census data.")
 
 # ---------------------------
