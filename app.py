@@ -11,27 +11,37 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-# ---------------------------
-# Page Setup
-# ---------------------------
-st.set_page_config(page_title="📊 Income Prediction App", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Income Prediction App", layout="wide")
 
-st.markdown("<h1 style='text-align: center; color: teal;'>💼 Income Prediction using Machine Learning Algorithms</h1>", unsafe_allow_html=True)
-st.write("This app allows you to explore multiple ML models and predict whether a person's income exceeds $50K/year.")
-
-# ---------------------------
-# Load & Prepare Dataset
-# ---------------------------
+# -------------------------------
+# Load and preprocess the dataset
+# -------------------------------
 @st.cache_data
+
 def load_data():
     df = pd.read_csv("adult 3.csv")
     df.replace('?', 'Others', inplace=True)
     df = df[~df['workclass'].isin(['Without-pay', 'Never-worked'])]
+
+    # Save columns for dropdown before dropping
+    education_raw = df['education']
+    occupation_raw = df['occupation']
+    sex_raw = df['sex']
+
     df.drop(columns=['education'], inplace=True)
 
-    le = LabelEncoder()
+    occupation_encoder = LabelEncoder()
+    education_encoder = LabelEncoder()
+    sex_encoder = LabelEncoder()
+
+    df['occupation'] = occupation_encoder.fit_transform(occupation_raw)
+    df['education'] = education_encoder.fit_transform(education_raw)
+    df['sex'] = sex_encoder.fit_transform(sex_raw)
+
     for col in df.select_dtypes(include='object').columns:
-        df[col] = le.fit_transform(df[col])
+        if col not in ['occupation', 'education', 'sex']:
+            le = LabelEncoder()
+            df[col] = le.fit_transform(df[col])
 
     df = df[(df['age'] >= 17) & (df['age'] <= 75)]
     df = df[(df['educational-num'] >= 5) & (df['educational-num'] <= 16)]
@@ -39,8 +49,11 @@ def load_data():
     df = df[(df['capital-gain'] <= 50000)]
     df = df[(df['capital-loss'] <= 4000)]
 
-    return df
+    return df, occupation_encoder, education_encoder, sex_encoder
 
+# -------------------------------
+# Train and evaluate models
+# -------------------------------
 @st.cache_resource
 def preprocess_and_train(df):
     X = df.drop('income', axis=1)
@@ -73,78 +86,58 @@ def preprocess_and_train(df):
 
     return X_train, X_test, y_train, y_test, scaler, trained
 
-# ---------------------------
-# Load data and train models
-# ---------------------------
-df = load_data()
+# -------------------------------
+# Main Streamlit App
+# -------------------------------
+st.title("📊 Income Prediction using ML Models")
+
+df, occupation_encoder, education_encoder, sex_encoder = load_data()
 X_train, X_test, y_train, y_test, scaler, trained_models = preprocess_and_train(df)
 
-# ---------------------------
-# Sidebar Settings
-# ---------------------------
-st.sidebar.header("⚙️ Settings")
-model_name = st.sidebar.selectbox("Select Model", list(trained_models.keys()))
-
+st.sidebar.header("🔧 Settings")
+model_name = st.sidebar.selectbox("Choose a Model", list(trained_models.keys()))
 model_info = trained_models[model_name]
 
-# ---------------------------
-# Tabs
-# ---------------------------
 tab1, tab2 = st.tabs(["📈 Model Performance", "🧪 Predict Income"])
 
-# ---------------------------
-# Tab 1 - Model Performance
-# ---------------------------
+# -------------------------------
+# Tab 1: Model Performance
+# -------------------------------
 with tab1:
-    st.markdown("### 🔍 Model Evaluation")
+    st.subheader(f"🔍 Evaluation of {model_name}")
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.metric("🔢 Accuracy", f"{model_info['accuracy']*100:.2f}%")
-
-        st.subheader("📋 Classification Report")
+        st.metric("Accuracy", f"{model_info['accuracy']*100:.2f}%")
+        st.subheader("Classification Report")
         report_df = pd.DataFrame(model_info['report']).transpose()
         st.dataframe(report_df.style.background_gradient(cmap='Blues'), use_container_width=True)
 
     with col2:
-        st.subheader("📊 Confusion Matrix")
+        st.subheader("Confusion Matrix")
         fig, ax = plt.subplots()
         sns.heatmap(model_info["cm"], annot=True, fmt='d', cmap='Blues', ax=ax)
         ax.set_xlabel("Predicted")
         ax.set_ylabel("Actual")
         st.pyplot(fig)
 
-# ---------------------------
-# Tab 2 - Prediction
-# ---------------------------
+# -------------------------------
+# Tab 2: Predict Income
+# -------------------------------
 with tab2:
     st.markdown("### 🧪 Try Your Own Input")
-
-    # Only these 4 features used
     st.info("This prediction is based only on **age**, **occupation**, **sex**, and **education**.")
 
-    # Load full set of encoders
-    global occupation_encoder, sex_encoder, education_encoder
-
-    # Prepare dropdowns using original class labels
     age = st.number_input("age", min_value=17, max_value=75, value=30)
-
     selected_occupation = st.selectbox("occupation", occupation_encoder.classes_)
-    selected_sex = st.selectbox("sex", df['sex'].sort_values().unique())
-    selected_education = st.selectbox("education", df['education'].sort_values().unique())
+    selected_sex = st.selectbox("sex", sex_encoder.classes_)
+    selected_education = st.selectbox("education", education_encoder.classes_)
 
-    # Encode user input
     occ_encoded = occupation_encoder.transform([selected_occupation])[0]
+    sex_encoded = sex_encoder.transform([selected_sex])[0]
+    edu_encoded = education_encoder.transform([selected_education])[0]
 
-    sex_le = LabelEncoder()
-    sex_le.fit(df['sex'])
-    sex_encoded = sex_le.transform([selected_sex])[0]
-
-    edu_le = LabelEncoder()
-    edu_le.fit(df['education'])
-    edu_encoded = edu_le.transform([selected_education])[0]
-
-    # Construct full feature vector with placeholder values for other columns
+    # Construct full input with placeholders
     feature_dict = {
         'age': age,
         'workclass': 0,
@@ -162,31 +155,29 @@ with tab2:
     }
 
     input_df = pd.DataFrame([feature_dict])
-
-    # Apply the same scaler
     input_scaled = scaler.transform(input_df)
-
-    # Predict
     prediction = model_info['model'].predict(input_scaled)[0]
 
-    # Show result
     st.success(f"✅ Prediction: {'>50K' if prediction == 1 else '<=50K'}")
     st.info(f"👤 Age: {age} | 👔 Occupation: {selected_occupation} | 🎓 Education: {selected_education} | ⚧️ Sex: {selected_sex}")
 
     st.warning("⚠️ This prediction is an estimate based on historical data and may not reflect real-life outcomes accurately. Please use it for educational purposes only.")
 
-
-# ---------------------------
-# Footer
-# ---------------------------
+# -------------------------------
+# Footer with Social Icons
+# -------------------------------
 st.markdown("""---""", unsafe_allow_html=True)
 
 st.markdown(
     """
     <div style='text-align: center;'>
-        <p>Built by <strong>Saranya Sarkar </strong>🚀</p>
+        <p>Made with ❤️ by <strong>Your Name</strong></p>
         <p>Connect with me:</p>
-        <a href="https://www.linkedin.com/in/saranya-sarkar/" target="_blank">
+        <a href="https://github.com/yourusername" target="_blank">
+            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" 
+                 alt="GitHub" width="30" style="margin-right:10px;" />
+        </a>
+        <a href="https://linkedin.com/in/yourusername" target="_blank">
             <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg" 
                  alt="LinkedIn" width="30" style="margin-right:10px;" />
         </a>
@@ -194,4 +185,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
