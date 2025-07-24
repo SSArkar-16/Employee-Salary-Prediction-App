@@ -120,18 +120,61 @@ with tab1:
 with tab2:
     st.markdown("### 🧪 Try Your Own Input")
 
-    input_data = {}
-    for col in df.drop('income', axis=1).columns:
-        if df[col].nunique() <= 20:
-            input_data[col] = st.selectbox(f"{col}", sorted(df[col].unique()))
-        else:
-            input_data[col] = st.number_input(f"{col}", float(df[col].min()), float(df[col].max()), float(df[col].mean()))
+    # Only these 4 features used
+    st.info("This prediction is based only on **age**, **occupation**, **sex**, and **education**.")
 
-    input_df = pd.DataFrame([input_data])
+    # Load full set of encoders
+    global occupation_encoder, sex_encoder, education_encoder
+
+    # Prepare dropdowns using original class labels
+    age = st.number_input("age", min_value=17, max_value=75, value=30)
+
+    selected_occupation = st.selectbox("occupation", occupation_encoder.classes_)
+    selected_sex = st.selectbox("sex", df['sex'].sort_values().unique())
+    selected_education = st.selectbox("education", df['education'].sort_values().unique())
+
+    # Encode user input
+    occ_encoded = occupation_encoder.transform([selected_occupation])[0]
+
+    sex_le = LabelEncoder()
+    sex_le.fit(df['sex'])
+    sex_encoded = sex_le.transform([selected_sex])[0]
+
+    edu_le = LabelEncoder()
+    edu_le.fit(df['education'])
+    edu_encoded = edu_le.transform([selected_education])[0]
+
+    # Construct full feature vector with placeholder values for other columns
+    feature_dict = {
+        'age': age,
+        'workclass': 0,
+        'fnlwgt': 0,
+        'educational-num': edu_encoded,
+        'marital-status': 0,
+        'occupation': occ_encoded,
+        'relationship': 0,
+        'race': 0,
+        'sex': sex_encoded,
+        'capital-gain': 0,
+        'capital-loss': 0,
+        'hours-per-week': 40,
+        'native-country': 0
+    }
+
+    input_df = pd.DataFrame([feature_dict])
+
+    # Apply the same scaler
     input_scaled = scaler.transform(input_df)
+
+    # Predict
     prediction = model_info['model'].predict(input_scaled)[0]
 
+    # Show result
     st.success(f"✅ Prediction: {'>50K' if prediction == 1 else '<=50K'}")
+    st.info(f"👤 Age: {age} | 👔 Occupation: {selected_occupation} | 🎓 Education: {selected_education} | ⚧️ Sex: {selected_sex}")
+
+    st.warning("⚠️ This prediction is an estimate based on historical data and may not reflect real-life outcomes accurately. Please use it for educational purposes only.")
+
 
 # ---------------------------
 # Footer
