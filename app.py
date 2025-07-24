@@ -136,5 +136,23 @@ with tab2:
 # ---------------------------
 # Footer
 # ---------------------------
-st.sidebar.markdown("---")
-st.sidebar.markdown("🚀 Built by Saranya Sarkar")
+st.markdown("""---""", unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <div style='text-align: center;'>
+        <p>Built by <strong>Saranya Sarkar </strong>🚀</p>
+        <p>Connect with me:</p>
+        <a href="https://github.com/SSArkar-16" target="_blank">
+            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" 
+                 alt="GitHub" width="30" style="margin-right:10px;" />
+        </a>
+        <a href="https://www.linkedin.com/in/saranya-sarkar/" target="_blank">
+            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg" 
+                 alt="LinkedIn" width="30" style="margin-right:10px;" />
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
